@@ -1,0 +1,241 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  password  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  trips     Trip[]
+}
+
+model Trip {
+  id             String            @id @default(cuid())
+  userId         String
+  user           User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title          String
+  description    String?
+  startDate      DateTime?
+  endDate        DateTime?
+  status         TripStatus        @default(PLANNING)
+  currency       String            @default("EUR")
+  notes          String?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  travelers      Traveler[]
+  stops          DestinationStop[]
+  days           ItineraryDay[]
+  budgetItems    BudgetItem[]
+  reservations   Reservation[]
+  documents      Document[]
+  checklistItems ChecklistItem[]
+}
+
+enum TripStatus {
+  PLANNING
+  ACTIVE
+  ARCHIVED
+}
+
+model Traveler {
+  id        String   @id @default(cuid())
+  tripId    String
+  trip      Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  name      String
+  age       Int?
+  isChild   Boolean  @default(false)
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model DestinationStop {
+  id            String         @id @default(cuid())
+  tripId        String
+  trip          Trip           @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  name          String
+  country       String?
+  arrivalDate   DateTime?
+  departureDate DateTime?
+  order         Int            @default(0)
+  notes         String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  days          ItineraryDay[]
+  budgetItems   BudgetItem[]
+}
+
+model ItineraryDay {
+  id        String           @id @default(cuid())
+  tripId    String
+  trip      Trip             @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  stopId    String?
+  stop      DestinationStop? @relation(fields: [stopId], references: [id])
+  date      DateTime
+  pace      DayPace          @default(MODERATE)
+  notes     String?
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+  items     ItineraryItem[]
+}
+
+enum DayPace {
+  LIGHT
+  MODERATE
+  BUSY
+}
+
+model ItineraryItem {
+  id          String       @id @default(cuid())
+  dayId       String
+  day         ItineraryDay @relation(fields: [dayId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  startTime   String?
+  endTime     String?
+  type        String?
+  order       Int          @default(0)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+model BudgetItem {
+  id          String          @id @default(cuid())
+  tripId      String
+  trip        Trip            @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  stopId      String?
+  stop        DestinationStop? @relation(fields: [stopId], references: [id])
+  category    BudgetCategory
+  description String
+  planned     Float
+  actual      Float?
+  currency    String?
+  notes       String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+}
+
+enum BudgetCategory {
+  TRANSPORT
+  LODGING
+  FOOD
+  ACTIVITY
+  SHOPPING
+  HEALTH
+  ADMIN
+  OTHER
+}
+
+model Reservation {
+  id            String          @id @default(cuid())
+  tripId        String
+  trip          Trip            @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  type          ReservationType
+  title         String
+  provider      String?
+  confirmRef    String?
+  startDate     DateTime?
+  endDate       DateTime?
+  amount        Float?
+  currency      String?
+  status        String?
+  notes         String?
+  attachmentUrl String?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+}
+
+enum ReservationType {
+  TRANSPORT
+  LODGING
+  ACTIVITY
+}
+
+model Document {
+  id         String       @id @default(cuid())
+  tripId     String
+  trip       Trip         @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  type       DocumentType
+  title      String
+  issuedTo   String?
+  issueDate  DateTime?
+  expiryDate DateTime?
+  fileUrl    String?
+  notes      String?
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+}
+
+enum DocumentType {
+  PASSPORT
+  VISA
+  INSURANCE
+  OTHER
+}
+
+model ChecklistTemplate {
+  id          String                  @id @default(cuid())
+  name        String
+  description String?
+  createdAt   DateTime                @default(now())
+  updatedAt   DateTime                @updatedAt
+  items       ChecklistTemplateItem[]
+}
+
+model ChecklistTemplateItem {
+  id         String            @id @default(cuid())
+  templateId String
+  template   ChecklistTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  title      String
+  category   String?
+  priority   Priority          @default(MEDIUM)
+  order      Int               @default(0)
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+}
+
+model ChecklistItem {
+  id         String    @id @default(cuid())
+  tripId     String
+  trip       Trip      @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  title      String
+  category   String?
+  priority   Priority  @default(MEDIUM)
+  completed  Boolean   @default(false)
+  dueDate    DateTime?
+  assignedTo String?
+  notes      String?
+  order      Int       @default(0)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+model RegionalNote {
+  id          String   @id @default(cuid())
+  country     String
+  destination String?
+  category    String
+  title       String
+  content     String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([country])
+}
