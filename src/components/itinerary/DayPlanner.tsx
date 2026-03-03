@@ -15,7 +15,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Plus, ChevronDown, ChevronUp, Trash2 } from "lucide-react";
+import { Plus, ChevronDown, ChevronUp, Trash2, Pencil } from "lucide-react";
 import { ItineraryItemForm } from "./ItineraryItemForm";
 import { useToast } from "@/components/ui/use-toast";
 
@@ -66,6 +66,10 @@ export function DayPlanner({
   const [showForm, setShowForm] = useState(false);
   const [expandedDay, setExpandedDay] = useState<string | null>(null);
   const [addItemDay, setAddItemDay] = useState<string | null>(null);
+  const [editItem, setEditItem] = useState<{
+    dayId: string;
+    item: ItineraryItem;
+  } | null>(null);
   const [form, setForm] = useState({
     date: "",
     stopId: "",
@@ -122,6 +126,22 @@ export function DayPlanner({
 
     setExpandedDay((prev) => (prev === dayId ? null : prev));
     toast({ title: "Day deleted" });
+    load();
+  }
+
+  async function handleDeleteItem(dayId: string, itemId: string) {
+    if (!confirm("Delete this activity?")) return;
+
+    const res = await fetch(`/api/days/${dayId}/items/${itemId}`, {
+      method: "DELETE",
+    });
+
+    if (!res.ok) {
+      toast({ title: "Failed to delete activity", variant: "destructive" });
+      return;
+    }
+
+    toast({ title: "Activity deleted" });
     load();
   }
 
@@ -213,23 +233,43 @@ export function DayPlanner({
                   .map((item) => (
                     <div
                       key={item.id}
-                      className="flex items-start gap-3 text-sm"
+                      className="flex items-start justify-between gap-3 text-sm"
                     >
-                      {item.startTime && (
-                        <span className="text-xs text-gray-400 w-20 shrink-0 pt-0.5">
-                          {item.startTime}
-                          {item.endTime && `–${item.endTime}`}
-                        </span>
-                      )}
-                      <div>
-                        <p className="font-medium text-gray-800">
-                          {item.title}
-                        </p>
-                        {item.description && (
-                          <p className="text-gray-500 text-xs">
-                            {item.description}
-                          </p>
+                      <div className="flex items-start gap-3 min-w-0">
+                        {item.startTime && (
+                          <span className="text-xs text-gray-400 w-20 shrink-0 pt-0.5">
+                            {item.startTime}
+                            {item.endTime && `–${item.endTime}`}
+                          </span>
                         )}
+                        <div>
+                          <p className="font-medium text-gray-800">
+                            {item.title}
+                          </p>
+                          {item.description && (
+                            <p className="text-gray-500 text-xs">
+                              {item.description}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-7 w-7"
+                          onClick={() => setEditItem({ dayId: day.id, item })}
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-7 w-7 text-red-500 hover:text-red-600 hover:bg-red-50"
+                          onClick={() => handleDeleteItem(day.id, item.id)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
                       </div>
                     </div>
                   ))}
@@ -324,6 +364,25 @@ export function DayPlanner({
           onClose={() => setAddItemDay(null)}
           onSuccess={() => {
             setAddItemDay(null);
+            load();
+          }}
+        />
+      )}
+
+      {editItem && (
+        <ItineraryItemForm
+          dayId={editItem.dayId}
+          itemId={editItem.item.id}
+          initialValues={{
+            title: editItem.item.title,
+            description: editItem.item.description,
+            startTime: editItem.item.startTime,
+            endTime: editItem.item.endTime,
+            type: editItem.item.type,
+          }}
+          onClose={() => setEditItem(null)}
+          onSuccess={() => {
+            setEditItem(null);
             load();
           }}
         />

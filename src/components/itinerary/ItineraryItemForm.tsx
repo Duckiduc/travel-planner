@@ -18,41 +18,66 @@ import { useToast } from "@/components/ui/use-toast";
 
 interface Props {
   dayId: string;
+  itemId?: string;
+  initialValues?: {
+    title: string;
+    description?: string | null;
+    startTime?: string | null;
+    endTime?: string | null;
+    type?: string | null;
+  };
   onClose: () => void;
   onSuccess: () => void;
 }
 
-export function ItineraryItemForm({ dayId, onClose, onSuccess }: Props) {
+export function ItineraryItemForm({
+  dayId,
+  itemId,
+  initialValues,
+  onClose,
+  onSuccess,
+}: Props) {
   const { toast } = useToast();
+  const isEditMode = Boolean(itemId);
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
-    title: "",
-    description: "",
-    startTime: "",
-    endTime: "",
-    type: "",
+    title: initialValues?.title ?? "",
+    description: initialValues?.description ?? "",
+    startTime: initialValues?.startTime ?? "",
+    endTime: initialValues?.endTime ?? "",
+    type: initialValues?.type ?? "",
   });
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     try {
-      const res = await fetch(`/api/days/${dayId}/items`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: form.title,
-          description: form.description || null,
-          startTime: form.startTime || null,
-          endTime: form.endTime || null,
-          type: form.type || null,
-        }),
-      });
+      const res = await fetch(
+        isEditMode
+          ? `/api/days/${dayId}/items/${itemId}`
+          : `/api/days/${dayId}/items`,
+        {
+          method: isEditMode ? "PATCH" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: form.title,
+            description: form.description || null,
+            startTime: form.startTime || null,
+            endTime: form.endTime || null,
+            type: form.type || null,
+          }),
+        },
+      );
       if (!res.ok) throw new Error();
-      toast({ title: "Activity added" });
+      toast({ title: isEditMode ? "Activity updated" : "Activity added" });
       onSuccess();
     } catch {
-      toast({ title: "Failed to add activity", variant: "destructive" });
+      toast({
+        title: isEditMode
+          ? "Failed to update activity"
+          : "Failed to add activity",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
@@ -62,9 +87,13 @@ export function ItineraryItemForm({ dayId, onClose, onSuccess }: Props) {
     <Dialog open onOpenChange={onClose}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Add Activity</DialogTitle>
+          <DialogTitle>
+            {isEditMode ? "Edit Activity" : "Add Activity"}
+          </DialogTitle>
           <DialogDescription className="sr-only">
-            Add an itinerary activity with optional time, type, and notes.
+            {isEditMode
+              ? "Edit an itinerary activity with optional time, type, and notes."
+              : "Add an itinerary activity with optional time, type, and notes."}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-3">
@@ -127,7 +156,7 @@ export function ItineraryItemForm({ dayId, onClose, onSuccess }: Props) {
               Cancel
             </Button>
             <Button type="submit" disabled={loading}>
-              {loading ? "Saving…" : "Add"}
+              {loading ? "Saving…" : isEditMode ? "Save" : "Add"}
             </Button>
           </DialogFooter>
         </form>
