@@ -18,51 +18,91 @@ import { useToast } from "@/components/ui/use-toast";
 
 interface Props {
   tripId: string;
+  reservationId?: string;
+  initialValues?: {
+    type: "TRANSPORT" | "LODGING" | "ACTIVITY";
+    title: string;
+    provider?: string | null;
+    confirmRef?: string | null;
+    startDate?: string | null;
+    endDate?: string | null;
+    amount?: number | null;
+    currency?: string | null;
+    status?: string | null;
+    notes?: string | null;
+  };
   onClose: () => void;
   onSuccess: () => void;
 }
 
-export function ReservationForm({ tripId, onClose, onSuccess }: Props) {
+const currencyOptions = ["EUR", "USD", "GBP", "JPY", "IDR", "PHP"];
+
+export function ReservationForm({
+  tripId,
+  reservationId,
+  initialValues,
+  onClose,
+  onSuccess,
+}: Props) {
   const { toast } = useToast();
+  const isEditMode = Boolean(reservationId);
+
+  const formatDate = (value?: string | null) => {
+    if (!value) return "";
+    return value.slice(0, 10);
+  };
+
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
-    type: "TRANSPORT",
-    title: "",
-    provider: "",
-    confirmRef: "",
-    startDate: "",
-    endDate: "",
-    amount: "",
-    currency: "",
-    status: "",
-    notes: "",
+    type: initialValues?.type ?? "TRANSPORT",
+    title: initialValues?.title ?? "",
+    provider: initialValues?.provider ?? "",
+    confirmRef: initialValues?.confirmRef ?? "",
+    startDate: formatDate(initialValues?.startDate),
+    endDate: formatDate(initialValues?.endDate),
+    amount: initialValues?.amount != null ? String(initialValues.amount) : "",
+    currency: initialValues?.currency ?? "EUR",
+    status: initialValues?.status ?? "",
+    notes: initialValues?.notes ?? "",
   });
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     try {
-      const res = await fetch(`/api/trips/${tripId}/reservations`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: form.type,
-          title: form.title,
-          provider: form.provider || null,
-          confirmRef: form.confirmRef || null,
-          startDate: form.startDate || null,
-          endDate: form.endDate || null,
-          amount: form.amount ? parseFloat(form.amount) : null,
-          currency: form.currency || null,
-          status: form.status || null,
-          notes: form.notes || null,
-        }),
-      });
+      const res = await fetch(
+        isEditMode
+          ? `/api/trips/${tripId}/reservations/${reservationId}`
+          : `/api/trips/${tripId}/reservations`,
+        {
+          method: isEditMode ? "PATCH" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type: form.type,
+            title: form.title,
+            provider: form.provider || null,
+            confirmRef: form.confirmRef || null,
+            startDate: form.startDate || null,
+            endDate: form.endDate || null,
+            amount: form.amount ? parseFloat(form.amount) : null,
+            currency: form.currency || null,
+            status: form.status || null,
+            notes: form.notes || null,
+          }),
+        },
+      );
       if (!res.ok) throw new Error();
-      toast({ title: "Reservation added" });
+      toast({
+        title: isEditMode ? "Reservation updated" : "Reservation added",
+      });
       onSuccess();
     } catch {
-      toast({ title: "Failed to add reservation", variant: "destructive" });
+      toast({
+        title: isEditMode
+          ? "Failed to update reservation"
+          : "Failed to add reservation",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
@@ -72,10 +112,13 @@ export function ReservationForm({ tripId, onClose, onSuccess }: Props) {
     <Dialog open onOpenChange={onClose}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>Add Reservation</DialogTitle>
+          <DialogTitle>
+            {isEditMode ? "Edit Reservation" : "Add Reservation"}
+          </DialogTitle>
           <DialogDescription className="sr-only">
-            Add reservation details including type, provider, dates, and booking
-            reference.
+            {isEditMode
+              ? "Edit reservation details including type, provider, dates, and booking reference."
+              : "Add reservation details including type, provider, dates, and booking reference."}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-3">
@@ -162,11 +205,17 @@ export function ReservationForm({ tripId, onClose, onSuccess }: Props) {
             </div>
             <div className="space-y-1">
               <Label>Currency</Label>
-              <Input
+              <Select
                 value={form.currency}
                 onChange={(e) => setForm({ ...form, currency: e.target.value })}
-                placeholder="EUR"
-              />
+              >
+                <option value="">— Select —</option>
+                {currencyOptions.map((currency) => (
+                  <option key={currency} value={currency}>
+                    {currency}
+                  </option>
+                ))}
+              </Select>
             </div>
           </div>
           <div className="space-y-1">
@@ -182,7 +231,7 @@ export function ReservationForm({ tripId, onClose, onSuccess }: Props) {
               Cancel
             </Button>
             <Button type="submit" disabled={loading}>
-              {loading ? "Saving…" : "Add"}
+              {loading ? "Saving…" : isEditMode ? "Save" : "Add"}
             </Button>
           </DialogFooter>
         </form>
